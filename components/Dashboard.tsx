@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Analytics, ParsedResult } from "@/lib/types";
 import KpiTicket from "./KpiTicket";
 import LedgerBars from "./LedgerBars";
@@ -22,6 +22,12 @@ import WelcomeBanner from "./WelcomeBanner";
 import ReconcilePanel from "./ReconcilePanel";
 import Tabs, { TabDef } from "./Tabs";
 import ThemePicker from "./ThemePicker";
+import ReprocessPanel from "./ReprocessPanel";
+import PromoPlanner from "./PromoPlanner";
+import CallQueuePanel from "./CallQueuePanel";
+import CommandPalette, { Command } from "./CommandPalette";
+import PresentMode from "./PresentMode";
+import { soundEnabled, setSoundEnabled, sfxTick } from "@/lib/sfx";
 import { FilterState, FilterOptions } from "@/lib/filters";
 import { exportToExcel, exportToPDF } from "@/lib/export";
 import { Order } from "@/lib/types";
@@ -67,6 +73,11 @@ export default function Dashboard({
   }));
 
   const [tab, setTab] = useState("ringkasan");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [presenting, setPresenting] = useState(false);
+  // Mirrors the stored preference so the palette label stays in sync.
+  const [soundOn, setSoundOn] = useState(false);
+  useEffect(() => setSoundOn(soundEnabled()), []);
 
   // Badges surface work that needs doing, so the tab bar doubles as a to-do.
   const tabs: TabDef[] = useMemo(() => {
@@ -75,15 +86,81 @@ export default function Dashboard({
     return [
       { id: "ringkasan", label: "Ringkasan", icon: "\u{1F4CA}" },
       { id: "selamatkan", label: "Selamatkan", icon: "\u{1F6A8}", badge: risky, badgeTone: "alert" },
+      { id: "panggil", label: "Panggilan Hari Ini", icon: "\u{1F4DE}" },
       { id: "punca", label: "Punca Return", icon: "\u{1F50D}", badge: returned, badgeTone: "alert" },
       { id: "bulanan", label: "Bulanan", icon: "\u{1F4C5}", badge: a.monthlyRecaps.length, badgeTone: "neutral" },
       { id: "produk", label: "Produk & Kurier", icon: "\u{1F4E6}" },
       { id: "orang", label: "Ejen & Pelanggan", icon: "\u{1F465}" },
+      { id: "reprocess", label: "Reprocess", icon: "\u{1F501}", badge: returned, badgeTone: "alert" },
+      { id: "promo", label: "Promosi", icon: "\u{1F3AF}" },
     ];
   }, [a]);
 
+  const commands: Command[] = useMemo(() => {
+    const list: Command[] = tabs.map((t, i) => ({
+      id: `tab-${t.id}`,
+      label: t.label,
+      group: "Pergi ke",
+      icon: t.icon,
+      hint: String(i + 1),
+      run: () => setTab(t.id),
+    }));
+
+    list.push(
+      {
+        id: "present",
+        label: "Mod Pembentangan",
+        group: "Tindakan",
+        icon: "\u{1F4FD}\uFE0F",
+        hint: "untuk mesyuarat",
+        run: () => setPresenting(true),
+      },
+      {
+        id: "excel",
+        label: "Muat turun Excel",
+        group: "Tindakan",
+        icon: "\u{1F4C4}",
+        run: () => exportToExcel(a, filteredOrders, parsed.fileName),
+      },
+      {
+        id: "pdf",
+        label: "Cetak / simpan PDF",
+        group: "Tindakan",
+        icon: "\u{1F5A8}\uFE0F",
+        run: exportToPDF,
+      },
+      {
+        id: "reset",
+        label: "Muat naik fail baharu",
+        group: "Tindakan",
+        icon: "\u{1F4C1}",
+        run: onReset,
+      },
+      {
+        id: "sound",
+        label: soundOn ? "Matikan bunyi" : "Hidupkan bunyi",
+        group: "Tetapan",
+        icon: soundOn ? "\u{1F507}" : "\u{1F50A}",
+        run: () => {
+          const next = !soundOn;
+          setSoundEnabled(next);
+          setSoundOn(next);
+        },
+      }
+    );
+    return list;
+  }, [tabs, a, filteredOrders, parsed.fileName, onReset, soundOn]);
+
   return (
     <div className="min-h-screen blueprint-grid pb-20 overflow-x-hidden">
+      <CommandPalette
+        commands={commands}
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+      />
+      {presenting && (
+        <PresentMode analytics={a} onClose={() => setPresenting(false)} />
+      )}
       {/* Header strip */}
       <header className="border-b border-surface-700/80 bg-surface-950/60 backdrop-blur sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
@@ -94,11 +171,28 @@ export default function Dashboard({
             <h1 className="font-display font-extrabold text-lg sm:text-2xl text-content-100 leading-none sm:mt-1 whitespace-nowrap">
               BIZAPP ANALYZER
             </h1>
-            <p className="text-[11px] text-content-300/50 mt-0.5 sm:hidden">
+            <p className="text-[10.5px] text-content-300/50 mt-0.5 sm:hidden whitespace-nowrap">
               {fmtDateShort(a.dateRange.start)} — {fmtDateShort(a.dateRange.end)}
             </p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0 no-print">
+            <button
+              onClick={() => { setPaletteOpen(true); sfxTick(); }}
+              aria-label="Buka palet arahan"
+              title="Palet arahan (Ctrl+K)"
+              className="flex items-center gap-1.5 border border-surface-600 rounded-full px-3 py-2 min-h-[38px] hover:bg-surface-700 transition-colors"
+            >
+              <span className="text-content-300 text-[13px]">⌘</span>
+              <kbd className="font-mono text-[10px] text-content-300/70 hidden sm:inline">K</kbd>
+            </button>
+            <button
+              onClick={() => setPresenting(true)}
+              aria-label="Mod pembentangan"
+              title="Mod pembentangan"
+              className="hidden sm:flex items-center border border-surface-600 rounded-full px-3 py-2 min-h-[38px] hover:bg-surface-700 transition-colors text-[13px]"
+            >
+              📽️
+            </button>
             <ThemePicker />
             <div className="text-right hidden lg:block mr-1">
               <p className="font-mono text-[10px] text-content-300/40 uppercase tracking-wider">Tempoh Data</p>
@@ -371,6 +465,42 @@ export default function Dashboard({
             <AgentQualityPanel rows={a.agentQuality} />
             <ManifestTable agents={a.agents} />
           </section>
+          </div>
+        )}
+
+        {tab === "panggil" && (
+          <div className="space-y-6 sm:space-y-8">
+            <section>
+              <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">
+                Panggilan Keutamaan Hari Ini
+              </p>
+              <p className="text-content-300/70 text-[13px] mb-4">
+                Disusun mengikut nilai order, kadar pemulihan sebab return, dan kesetiaan
+                customer — hubungi dari atas ke bawah.
+              </p>
+              <CallQueuePanel orders={filteredOrders} />
+            </section>
+          </div>
+        )}
+
+        {tab === "reprocess" && (
+          <div className="space-y-6 sm:space-y-8">
+            <section>
+              <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">
+                Proses Semula Order Return
+              </p>
+              <p className="text-content-300/70 text-[13px] mb-4">
+                Hubungi customer yang parcelnya dipulangkan, dan jejak berapa banyak jualan
+                berjaya dipulihkan.
+              </p>
+              <ReprocessPanel orders={filteredOrders} />
+            </section>
+          </div>
+        )}
+
+        {tab === "promo" && (
+          <div className="space-y-6 sm:space-y-8">
+            <PromoPlanner />
           </div>
         )}
 

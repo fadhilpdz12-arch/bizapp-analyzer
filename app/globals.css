@@ -217,3 +217,29 @@ body {
   table { font-size: 10pt !important; }
   header { position: static !important; }
 }
+
+/* ── Form + button primitives ────────────────────────────────────────── */
+@layer components {
+  .input {
+    @apply w-full bg-surface-900 border border-surface-600 rounded-lg px-3 py-2
+           text-[13px] text-content-100 placeholder:text-content-300/40
+           focus:border-accent focus:outline-none;
+  }
+  .btn-soft {
+    @apply font-mono text-[11px] uppercase tracking-wider border border-surface-600
+           text-content-300 px-3 py-2 rounded-lg min-h-[36px]
+           hover:bg-surface-700 transition-colors;
+  }
+  .btn-accent {
+    @apply font-mono text-[11px] uppercase tracking-wider border border-accent
+           text-accent-ink bg-accent-wash px-3 py-2 rounded-lg min-h-[36px]
+           hover:bg-accent/15 transition-colors;
+  }
+  /* Clamp long scripts on the plan cards. */
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}

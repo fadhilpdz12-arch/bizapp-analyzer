@@ -2,6 +2,36 @@
 
 Dashboard admin untuk analisis return & delivery — upload export Bizapp (.xlsx/.csv), terus dapat root-cause return, perbandingan produk/kurier, dan unjuran jualan. Semua processing jalan dalam browser (client-side) — tiada data dihantar ke server mana-mana pun.
 
+## Deploy ke Netlify (paling senang)
+
+Fail ini adalah **Next.js**, jadi ia tidak boleh diseret terus ke Netlify Drop
+dalam bentuk folder sumber — Netlify hanya akan nampak fail kod dan memaparkan
+"Page not found". Ia mesti dibina dahulu.
+
+Aplikasi ini berjalan 100% dalam browser (tiada server, tiada API), jadi ia
+sudah dikonfigurasikan untuk **static export**.
+
+**Cara A — Netlify Drop (tanpa GitHub):**
+
+```bash
+npm install
+npm run build
+```
+
+Selepas siap, satu folder bernama `out/` akan wujud. **Seret folder `out/` itu**
+ke https://app.netlify.com/drop — bukan folder projek.
+
+**Cara B — Netlify + GitHub (auto-deploy setiap kali push):**
+
+1. Push projek ke GitHub.
+2. Netlify → Add new site → Import an existing project → pilih repo.
+3. Tetapkan:
+   - Build command: `npm run build`
+   - Publish directory: `out`
+4. Deploy. Setiap `git push` selepas ini akan auto-deploy.
+
+**Cara C — Vercel:** import repo, tiada tetapan perlu diubah.
+
 ## Run tempatan (local dev)
 
 ```bash

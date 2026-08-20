@@ -37,7 +37,7 @@ export default function Tabs({
   }, [tabs, onChange]);
 
   return (
-    <div className="tabbar sticky top-[68px] sm:top-[76px] z-20 px-1.5 py-1.5 overflow-x-auto scroll-hint no-print">
+    <div className="tabbar sticky top-[74px] sm:top-[78px] z-20 px-1.5 py-1.5 overflow-x-auto scroll-hint no-print">
       <div className="flex items-center gap-1 min-w-max" role="tablist">
         {tabs.map((t, i) => {
           const isActive = t.id === active;
