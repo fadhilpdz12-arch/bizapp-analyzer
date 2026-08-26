@@ -25,6 +25,7 @@ import ThemePicker from "./ThemePicker";
 import ReprocessPanel from "./ReprocessPanel";
 import PromoPlanner from "./PromoPlanner";
 import CallQueuePanel from "./CallQueuePanel";
+import CausePanel from "./CausePanel";
 import CommandPalette, { Command } from "./CommandPalette";
 import PresentMode from "./PresentMode";
 import { soundEnabled, setSoundEnabled, sfxTick } from "@/lib/sfx";
@@ -352,6 +353,17 @@ export default function Dashboard({
 
         {tab === "punca" && (
           <div className="space-y-6 sm:space-y-8">
+            <section>
+              <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">
+                Sebab Sebenar (Ditanda Admin)
+              </p>
+              <p className="text-content-300/70 text-[13px] mb-4">
+                Status kurier tidak beritahu kenapa customer menolak. Tanda sebab sebenar di
+                sini untuk dapat gambaran yang boleh ditindak.
+              </p>
+              <CausePanel orders={filteredOrders} />
+            </section>
+
           <section>
             <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">Punca Kerugian</p>
             <p className="text-content-300/70 text-[13px] mb-4">
