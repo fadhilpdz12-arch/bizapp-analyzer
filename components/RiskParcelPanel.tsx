@@ -1,7 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { RiskParcel } from "@/lib/types";
+import {
+  RiskRecord,
+  RiskStatus,
+  RISK_STATUSES,
+  blankRisk,
+  loadRisk,
+  saveRisk,
+  riskKey,
+  summariseRisk,
+} from "@/lib/riskFollowup";
+import { waLink } from "@/lib/winback";
+import { sfxSuccess, sfxSave } from "@/lib/sfx";
+import { recordActivity } from "@/lib/engagement";
+import CountUp from "./CountUp";
+
+const STATUS_STYLE: Record<RiskStatus, string> = {
+  "Belum Hubungi": "text-content-300 border-surface-500 bg-surface-700",
+  "Dah Hubungi — Akan Terima": "text-stamp-amber border-stamp-amber/40 bg-stamp-amber/10",
+  "Minta Hantar Semula": "text-stamp-amber border-stamp-amber/40 bg-stamp-amber/10",
+  "Tak Dapat Dihubungi": "text-stamp-red border-stamp-red/40 bg-stamp-red/10",
+  "Selamat — Sampai": "text-stamp-green border-stamp-green/40 bg-stamp-green/10",
+};
+
+function rm(n: number) {
+  return `RM ${Math.round(n).toLocaleString()}`;
+}
+
+/** A parcel that has stalled needs a nudge, not a sales pitch. */
+function message(p: RiskParcel): string {
+  return (
+    `Salam ${p.customerName || "puan/tuan"}, saya dari Meldoria. ` +
+    `Parcel ${p.product || "pesanan anda"} (${p.trackingNo}) nampak tersangkut ` +
+    `${p.daysStalled} hari di pihak kurier. ` +
+    `Boleh saya bantu semak, atau nak saya minta rider hantar semula?`
+  );
+}
 
 export default function RiskParcelPanel({
   parcels,
@@ -10,103 +46,318 @@ export default function RiskParcelPanel({
   parcels: RiskParcel[];
   thresholdDays: number;
 }) {
+  const [map, setMap] = useState<Record<string, RiskRecord>>({});
+  const [ready, setReady] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const shown = showAll ? parcels : parcels.slice(0, 12);
-  const totalValue = parcels.reduce((s, p) => s + p.amount, 0);
-  const critical = parcels.filter((p) => p.severity === "kritikal").length;
+  const [open, setOpen] = useState<string | null>(null);
+  const [filter, setFilter] = useState<RiskStatus | "semua">("semua");
+
+  useEffect(() => {
+    setMap(loadRisk());
+    setReady(true);
+  }, []);
+
+  const summary = useMemo(() => summariseRisk(parcels, map), [parcels, map]);
+
+  const visible = useMemo(() => {
+    const list =
+      filter === "semua"
+        ? parcels
+        : parcels.filter(
+            (p) => (map[riskKey(p.trackingNo)]?.status ?? "Belum Hubungi") === filter
+          );
+    // Untouched parcels first — that's the work still to do.
+    return [...list].sort((a, b) => {
+      const sa = map[riskKey(a.trackingNo)]?.status ?? "Belum Hubungi";
+      const sb = map[riskKey(b.trackingNo)]?.status ?? "Belum Hubungi";
+      const rank = (s: string) => (s === "Belum Hubungi" ? 0 : s === "Selamat — Sampai" ? 2 : 1);
+      return rank(sa) - rank(sb) || b.amount - a.amount;
+    });
+  }, [parcels, map, filter]);
+
+  const shown = showAll ? visible : visible.slice(0, 12);
+
+  const update = useCallback((p: RiskParcel, patch: Partial<RiskRecord>) => {
+    const k = riskKey(p.trackingNo);
+    setMap((prev) => {
+      const base = prev[k] ?? blankRisk();
+      const next = {
+        ...prev,
+        [k]: { ...base, ...patch, updatedAt: new Date().toISOString() },
+      };
+      if (!saveRisk(next)) return prev;
+
+      if (patch.status === "Selamat — Sampai" && base.status !== "Selamat — Sampai") {
+        sfxSuccess();
+      } else if (patch.status) {
+        sfxSave();
+      }
+      if (patch.status) recordActivity(0);
+      return next;
+    });
+  }, []);
+
+  if (!ready) {
+    return (
+      <div className="ticket p-6">
+        <p className="text-content-300 text-[13px]">Memuatkan…</p>
+      </div>
+    );
+  }
+
+  if (parcels.length === 0) {
+    return (
+      <div className="ticket p-5 sm:p-6 fade-up">
+        <p className="font-mono text-[10px] tracking-[0.22em] uppercase text-content-300/50">
+          Parcel Berisiko — Perlu Tindakan
+        </p>
+        <p className="text-stamp-green text-[13.5px] mt-3">
+          Tiada parcel tersangkut. Semua pending masih dalam tempoh normal.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="ticket p-5 sm:p-6 fade-up">
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-2">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <p className="font-mono text-[10px] tracking-[0.22em] uppercase text-content-300/50">
             Parcel Berisiko — Perlu Tindakan
           </p>
-          <p className="text-[12.5px] text-content-300/50 mt-1.5 max-w-md leading-relaxed">
-            Parcel PENDING yang tiada pergerakan melebihi {thresholdDays} hari. Call customer
-            sebelum ia auto-return.
+          <p className="text-[12.5px] text-content-300/70 mt-1.5 max-w-md leading-relaxed">
+            Parcel PENDING yang tiada pergerakan melebihi {thresholdDays} hari. Hubungi
+            customer sebelum ia auto-return.
           </p>
         </div>
         <div className="text-right">
           <p className="font-display font-extrabold text-3xl text-stamp-amber leading-none">
-            {parcels.length}
+            <CountUp value={summary.pending} />
           </p>
-          <p className="font-mono text-[10.5px] text-content-300/45 mt-1">
-            RM {Math.round(totalValue).toLocaleString()} berisiko
+          <p className="font-mono text-[10.5px] text-content-300/60 mt-1">
+            belum dihubungi · {rm(summary.pendingValue)}
           </p>
         </div>
       </div>
 
-      {critical > 0 && (
-        <div className="mt-3 mb-4 border border-stamp-red/35 bg-stamp-red/10 px-3.5 py-2.5 rounded-sm">
-          <p className="font-mono text-[11.5px] text-stamp-red">
-            {critical} parcel tahap kritikal — hampir pasti jadi return kalau tiada tindakan.
-          </p>
-        </div>
-      )}
+      {/* Progress across the queue */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4 pt-4 border-t border-surface-600">
+        <Stat label="Jumlah" value={summary.total} />
+        <Stat label="Dah Dihubungi" value={summary.contacted} tone="amber" />
+        <Stat label="Selamat Sampai" value={summary.saved} tone="green" sub={rm(summary.savedValue)} />
+        <Stat label="Tak Dapat Dihubungi" value={summary.unreachable} tone="red" />
+      </div>
 
-      {parcels.length === 0 ? (
-        <p className="text-[13.5px] text-stamp-green mt-4">
-          Tiada parcel tersangkut. Semua pending masih dalam tempoh normal.
-        </p>
-      ) : (
-        <>
-          <div className="overflow-x-auto scroll-hint mt-4">
-            <table className="w-full text-[12.5px] min-w-[620px]">
-              <thead>
-                <tr className="text-content-300/40 font-mono text-[9.5px] uppercase tracking-wider border-b border-surface-600">
-                  <th className="text-left font-medium pb-2">Hari</th>
-                  <th className="text-left font-medium pb-2">Pelanggan</th>
-                  <th className="text-left font-medium pb-2">Telefon</th>
-                  <th className="text-left font-medium pb-2">Tracking</th>
-                  <th className="text-right font-medium pb-2">Nilai</th>
-                  <th className="text-left font-medium pb-2">Kawasan</th>
-                  <th className="text-left font-medium pb-2">Scan Akhir</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((p, i) => (
-                  <tr key={p.trackingNo + i} className="border-b border-surface-700/60 last:border-0">
-                    <td className="py-2.5">
-                      <span
-                        className={`font-mono font-semibold ${
-                          p.severity === "kritikal" ? "text-stamp-red" : "text-stamp-amber"
-                        }`}
-                      >
-                        {p.daysStalled}h
+      <div className="flex flex-wrap gap-2 mt-4">
+        {(["semua", ...RISK_STATUSES] as const).map((s) => {
+          const count =
+            s === "semua"
+              ? parcels.length
+              : parcels.filter(
+                  (p) => (map[riskKey(p.trackingNo)]?.status ?? "Belum Hubungi") === s
+                ).length;
+          if (s !== "semua" && count === 0) return null;
+          return (
+            <button
+              key={s}
+              onClick={() => setFilter(s)}
+              className={`font-mono text-[10.5px] uppercase tracking-wider px-2.5 py-1.5 rounded-lg border transition-colors ${
+                filter === s
+                  ? "border-accent text-accent-ink bg-accent-wash"
+                  : "border-surface-600 text-content-300 hover:bg-surface-700"
+              }`}
+            >
+              {s === "semua" ? "Semua" : s} ({count})
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="space-y-2 mt-4">
+        {shown.map((p) => {
+          const k = riskKey(p.trackingNo);
+          const rec = map[k] ?? blankRisk();
+          const isOpen = open === k;
+          const link = waLink(p.phone, message(p));
+
+          return (
+            <div key={k} className="border border-surface-600 rounded-xl overflow-hidden">
+              <div className="px-3.5 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                  <span
+                    className={`font-mono text-[9px] uppercase tracking-wider border rounded-full px-1.5 py-1 whitespace-nowrap shrink-0 ${
+                      p.severity === "kritikal"
+                        ? "text-stamp-red border-stamp-red/40 bg-stamp-red/10"
+                        : "text-stamp-amber border-stamp-amber/40 bg-stamp-amber/10"
+                    }`}
+                  >
+                    {p.daysStalled}h
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[13.5px] font-medium text-content-100">
+                        {p.customerName}
                       </span>
-                    </td>
-                    <td className="py-2.5 text-content-100/90 truncate max-w-[150px]">{p.customerName}</td>
-                    <td className="py-2.5">
+                      <span
+                        className={`font-mono text-[9px] uppercase tracking-wider border rounded-full px-1.5 py-0.5 ${STATUS_STYLE[rec.status]}`}
+                      >
+                        {rec.status}
+                      </span>
+                    </div>
+                    <p className="text-[12px] text-content-300/80 mt-0.5">
+                      {p.product} · {p.courierProvider}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between sm:justify-end gap-3 pl-9 sm:pl-0">
+                  <p className="font-mono text-[13.5px] font-semibold text-content-100 shrink-0">
+                    {rm(p.amount)}
+                  </p>
+                  <div className="flex gap-1.5 shrink-0">
+                    {link && (
                       <a
-                        href={`https://wa.me/${p.phone.replace(/\D/g, "").replace(/^0/, "60")}`}
+                        href={link}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="font-mono text-stamp-green hover:underline"
+                        onClick={() =>
+                          update(p, {
+                            status: "Dah Hubungi — Akan Terima",
+                            contactedAt: new Date().toISOString().slice(0, 10),
+                          })
+                        }
+                        className="flex items-center bg-stamp-green/10 text-stamp-green border border-stamp-green/40 rounded-lg px-3 py-2 min-h-[36px] text-[12px] font-medium hover:bg-stamp-green/20 transition-colors"
                       >
-                        {p.phone || "—"}
+                        WhatsApp
                       </a>
-                    </td>
-                    <td className="py-2.5 font-mono text-content-300/55 text-[11.5px]">{p.trackingNo}</td>
-                    <td className="py-2.5 text-right font-mono text-accent">{p.amount.toLocaleString()}</td>
-                    <td className="py-2.5 text-content-300/55 truncate max-w-[130px]">{p.region}</td>
-                    <td className="py-2.5 font-mono text-content-300/45">{p.lastScanLabel}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    )}
+                    <button
+                      onClick={() => setOpen(isOpen ? null : k)}
+                      className="btn-soft px-2.5"
+                      aria-label="Butiran parcel"
+                    >
+                      {isOpen ? "▲" : "▼"}
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-          {parcels.length > 12 && (
-            <button
-              onClick={() => setShowAll(!showAll)}
-              className="mt-4 font-mono text-[11px] uppercase tracking-wider text-accent hover:underline"
-            >
-              {showAll ? "Tunjuk kurang" : `Tunjuk semua ${parcels.length} parcel`}
-            </button>
-          )}
-        </>
+              {isOpen && (
+                <div className="border-t border-surface-600 bg-surface-950/40 px-3.5 py-4 space-y-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[12px]">
+                    <Meta label="Telefon" value={p.phone} mono />
+                    <Meta label="Tracking" value={p.trackingNo} mono />
+                    <Meta label="Ejen" value={p.agent || "—"} />
+                    <Meta label="Kawasan" value={p.region || "—"} />
+                  </div>
+
+                  <div>
+                    <p className="font-mono text-[9px] uppercase tracking-wider text-content-300/50">
+                      Imbasan terakhir
+                    </p>
+                    <p className="text-[12.5px] text-content-100/85 mt-0.5">
+                      {p.lastScanLabel || "Tiada maklumat"}
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => update(p, { status: "Selamat — Sampai" })}
+                      className="btn-soft text-stamp-green border-stamp-green/40 hover:bg-stamp-green/10"
+                    >
+                      ✓ Selamat — Sampai
+                    </button>
+                    <button
+                      onClick={() => update(p, { status: "Minta Hantar Semula" })}
+                      className="btn-soft"
+                    >
+                      Minta Hantar Semula
+                    </button>
+                    <button
+                      onClick={() => update(p, { status: "Tak Dapat Dihubungi" })}
+                      className="btn-soft"
+                    >
+                      Tak Dapat Dihubungi
+                    </button>
+                    <button
+                      onClick={() => update(p, { status: "Belum Hubungi" })}
+                      className="btn-soft"
+                    >
+                      Reset
+                    </button>
+                  </div>
+
+                  <label className="block">
+                    <span className="font-mono text-[9px] uppercase tracking-wider text-content-300/50">
+                      Catatan
+                    </span>
+                    <input
+                      value={rec.note ?? ""}
+                      onChange={(e) => update(p, { note: e.target.value })}
+                      placeholder="Contoh: customer minta hantar hujung minggu"
+                      className="input mt-1"
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {visible.length > 12 && (
+        <button
+          onClick={() => setShowAll((v) => !v)}
+          className="btn-soft mt-3"
+        >
+          {showAll ? "Tunjuk kurang" : `Tunjuk semua ${visible.length} parcel`}
+        </button>
       )}
+
+      <p className="text-content-300/60 text-[11.5px] mt-4 leading-relaxed">
+        Status disimpan dalam browser komputer ini. Menekan WhatsApp akan menandakan parcel
+        sebagai sudah dihubungi secara automatik.
+      </p>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  sub,
+  tone = "ink",
+}: {
+  label: string;
+  value: number;
+  sub?: string;
+  tone?: "ink" | "amber" | "green" | "red";
+}) {
+  const colour =
+    tone === "amber" ? "text-stamp-amber"
+    : tone === "green" ? "text-stamp-green"
+    : tone === "red" ? "text-stamp-red"
+    : "text-content-100";
+  return (
+    <div className="border border-surface-600 rounded-lg px-3 py-2.5">
+      <p className="font-mono text-[9px] uppercase tracking-wider text-content-300/60">
+        {label}
+      </p>
+      <p className={`font-display font-extrabold text-[1.3rem] leading-none mt-1 ${colour}`}>
+        {value}
+      </p>
+      {sub && <p className="text-[10.5px] text-content-300/60 mt-1">{sub}</p>}
+    </div>
+  );
+}
+
+function Meta({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div>
+      <p className="font-mono text-[9px] uppercase tracking-wider text-content-300/50">{label}</p>
+      <p className={`mt-0.5 text-content-100/90 ${mono ? "font-mono text-[11.5px]" : "text-[12.5px]"}`}>
+        {value}
+      </p>
     </div>
   );
 }
