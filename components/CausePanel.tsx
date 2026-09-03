@@ -241,7 +241,7 @@ export default function CausePanel({ orders }: { orders: Order[] }) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <GroupCard
               label="Order Palsu"
-              hint="Tak order · Joy buyer"
+              hint="Joy Buyers"
               count={groups.fakeOrders}
               value={groups.fakeValue}
               tone="red"
@@ -249,7 +249,7 @@ export default function CausePanel({ orders }: { orders: Order[] }) {
             />
             <GroupCard
               label="Masalah Penghantaran"
-              hint="Rider tak inform · Jauh dari rumah"
+              hint="Tiada Inform Dari Rider"
               count={groups.delivery}
               value={groups.deliveryValue}
               tone="amber"
@@ -257,7 +257,7 @@ export default function CausePanel({ orders }: { orders: Order[] }) {
             />
             <GroupCard
               label="Masalah Customer"
-              hint="WhatsApp tak reply · lain-lain"
+              hint="Confirmation Reply/Done Reminder · Confirmation Tidak Reply/Done Reminder · Done Reminder · Lain-lain"
               count={groups.customer}
               value={groups.customerValue}
               tone="accent"
