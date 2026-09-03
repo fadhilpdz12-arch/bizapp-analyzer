@@ -14,6 +14,7 @@ import MonthComparisonPanel from "./MonthComparisonPanel";
 import ExecutiveSummary from "./ExecutiveSummary";
 import ShippingComparePanel from "./ShippingComparePanel";
 import RiskParcelPanel from "./RiskParcelPanel";
+import SelamatkanSummaryPanel from "./SelamatkanSummaryPanel";
 import MoneyLostPanel from "./MoneyLostPanel";
 import CustomerPanel from "./CustomerPanel";
 import AgentQualityPanel from "./AgentQualityPanel";
@@ -74,6 +75,8 @@ export default function Dashboard({
   }));
 
   const [tab, setTab] = useState("ringkasan");
+  // Sub-tab dalam Selamatkan: senarai tindakan vs ringkasan apa admin dah buat.
+  const [selamatkanView, setSelamatkanView] = useState<"tindakan" | "ringkasan">("tindakan");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [presenting, setPresenting] = useState(false);
   // Mirrors the stored preference so the palette label stays in sync.
@@ -339,14 +342,45 @@ export default function Dashboard({
         {tab === "selamatkan" && (
           <div className="space-y-6 sm:space-y-8">
           <section id="parcel-berisiko" className="scroll-mt-24">
-            <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">Boleh Diselamatkan</p>
-            <p className="text-content-300/70 text-[13px] mb-4">
-              Parcel yang masih boleh dikejar, dan semakan bayaran masuk.
-            </p>
-            <div className="space-y-5 sm:space-y-6">
-              <RiskParcelPanel parcels={a.riskParcels} thresholdDays={a.riskThresholdDays} />
-              <ReconcilePanel orders={filteredOrders} />
+            <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+              <div>
+                <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">Boleh Diselamatkan</p>
+                <p className="text-content-300/70 text-[13px]">
+                  Parcel yang masih boleh dikejar, dan semakan bayaran masuk.
+                </p>
+              </div>
+
+              {/* SUB-TAB: Tindakan vs Ringkasan */}
+              <div className="flex gap-2">
+                {(
+                  [
+                    ["tindakan", "Tindakan"],
+                    ["ringkasan", "Ringkasan"],
+                  ] as const
+                ).map(([id, label]) => (
+                  <button
+                    key={id}
+                    onClick={() => setSelamatkanView(id)}
+                    className={`font-mono text-[10.5px] uppercase tracking-wider px-3 py-2 rounded-lg border transition-colors ${
+                      selamatkanView === id
+                        ? "border-accent text-accent-ink bg-accent-wash"
+                        : "border-surface-600 text-content-300 hover:bg-surface-700"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {selamatkanView === "tindakan" ? (
+              <div className="space-y-5 sm:space-y-6">
+                <RiskParcelPanel parcels={a.riskParcels} thresholdDays={a.riskThresholdDays} />
+                <ReconcilePanel orders={filteredOrders} />
+              </div>
+            ) : (
+              <SelamatkanSummaryPanel parcels={a.riskParcels} />
+            )}
           </section>
           </div>
         )}
