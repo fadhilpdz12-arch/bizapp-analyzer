@@ -257,7 +257,7 @@ export default function CausePanel({ orders }: { orders: Order[] }) {
             />
             <GroupCard
               label="Masalah Customer"
-              hint="Confirmation Reply/Done Reminder · Confirmation Tidak Reply/Done Reminder · Done Reminder · Lain-lain"
+              hint="Confirmation Reply/Done Reminder · Confirmation Tidak Reply/Done Reminder · Whatsapp Tidak Reply/Done Reminder · Done Reminder · Lain-lain"
               count={groups.customer}
               value={groups.customerValue}
               tone="accent"
