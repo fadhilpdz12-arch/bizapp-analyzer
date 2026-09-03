@@ -26,6 +26,7 @@ const CUSTOM_KEY = "bizapp-return-cause-list-v1";
 export const DEFAULT_CAUSES = [
   "Confirmation Reply/Done Reminder",
   "Confirmation Tidak Reply/Done Reminder",
+  "Whatsapp Tidak Reply/Done Reminder",
   "Done Reminder",
   "Joy Buyers",
   "Tiada Inform Dari Rider",
