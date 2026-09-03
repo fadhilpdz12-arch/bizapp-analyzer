@@ -24,22 +24,19 @@ const CUSTOM_KEY = "bizapp-return-cause-list-v1";
  * — these are just the ones that come up most.
  */
 export const DEFAULT_CAUSES = [
-  "WhatsApp tak reply",
-  "Tak order",
-  "Jauh dari rumah",
-  "Tiada inform dari rider / Pos Laju",
-  "Joy buyer",
+  "Confirmation Reply/Done Reminder",
+  "Confirmation Tidak Reply/Done Reminder",
+  "Done Reminder",
+  "Joy Buyers",
+  "Tiada Inform Dari Rider",
   "Lain-lain",
 ] as const;
 
 /** Causes that mean the order was never real — worth separating out. */
-export const FAKE_ORDER_CAUSES = new Set(["Tak order", "Joy buyer"]);
+export const FAKE_ORDER_CAUSES = new Set(["Joy Buyers"]);
 
 /** Causes the courier or delivery process caused, not the customer. */
-export const DELIVERY_CAUSES = new Set([
-  "Tiada inform dari rider / Pos Laju",
-  "Jauh dari rumah",
-]);
+export const DELIVERY_CAUSES = new Set(["Tiada Inform Dari Rider"]);
 
 // ── Cause list (default + custom) ───────────────────────────────────────────
 
