@@ -34,11 +34,20 @@ const STATUS_STYLE: Record<RiskStatus, string> = {
   "Belum Hubungi":
     "text-content-300 border-surface-500 bg-surface-700",
 
+  "Confirmation Reply":
+    "text-stamp-green border-stamp-green/40 bg-stamp-green/10",
+
+  "Confirmation Tidak Reply":
+    "text-stamp-amber border-stamp-amber/40 bg-stamp-amber/10",
+
   "Dah Hubungi — Akan Terima":
     "text-stamp-amber border-stamp-amber/40 bg-stamp-amber/10",
 
   "Minta Hantar Semula":
     "text-stamp-amber border-stamp-amber/40 bg-stamp-amber/10",
+
+  "Cancel Order":
+    "text-stamp-red border-stamp-red/40 bg-stamp-red/10",
 
   "Tak Dapat Dihubungi":
     "text-stamp-red border-stamp-red/40 bg-stamp-red/10",
@@ -348,7 +357,7 @@ export default function RiskParcelPanel({
 
 
       {/* SUMMARY */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4 pt-4 border-t border-surface-600">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mt-4 pt-4 border-t border-surface-600">
 
         <Stat
           label="Jumlah"
@@ -366,6 +375,13 @@ export default function RiskParcelPanel({
           value={summary.saved}
           tone="green"
           sub={rm(summary.savedValue)}
+        />
+
+        <Stat
+          label="Dibatalkan"
+          value={summary.cancelled}
+          tone="red"
+          sub={rm(summary.cancelledValue)}
         />
 
         <Stat
@@ -765,6 +781,37 @@ export default function RiskParcelPanel({
                       onClick={() =>
                         update(parcel, {
                           status:
+                            "Confirmation Reply",
+                        })
+                      }
+                      className="
+                        btn-soft
+                        text-stamp-green
+                        border-stamp-green/40
+                        hover:bg-stamp-green/10
+                      "
+                    >
+                      Confirmation Reply
+                    </button>
+
+
+                    <button
+                      onClick={() =>
+                        update(parcel, {
+                          status:
+                            "Confirmation Tidak Reply",
+                        })
+                      }
+                      className="btn-soft"
+                    >
+                      Confirmation Tidak Reply
+                    </button>
+
+
+                    <button
+                      onClick={() =>
+                        update(parcel, {
+                          status:
                             "Selamat — Sampai",
                         })
                       }
@@ -789,6 +836,24 @@ export default function RiskParcelPanel({
                       className="btn-soft"
                     >
                       Minta Hantar Semula
+                    </button>
+
+
+                    <button
+                      onClick={() =>
+                        update(parcel, {
+                          status:
+                            "Cancel Order",
+                        })
+                      }
+                      className="
+                        btn-soft
+                        text-stamp-red
+                        border-stamp-red/40
+                        hover:bg-stamp-red/10
+                      "
+                    >
+                      Cancel Order
                     </button>
 
 
