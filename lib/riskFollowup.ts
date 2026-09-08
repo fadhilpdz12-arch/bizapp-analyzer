@@ -10,15 +10,21 @@
 
 export type RiskStatus =
   | "Belum Hubungi"
+  | "Confirmation Reply"
+  | "Confirmation Tidak Reply"
   | "Dah Hubungi — Akan Terima"
   | "Minta Hantar Semula"
+  | "Cancel Order"
   | "Tak Dapat Dihubungi"
   | "Selamat — Sampai";
 
 export const RISK_STATUSES: RiskStatus[] = [
   "Belum Hubungi",
+  "Confirmation Reply",
+  "Confirmation Tidak Reply",
   "Dah Hubungi — Akan Terima",
   "Minta Hantar Semula",
+  "Cancel Order",
   "Tak Dapat Dihubungi",
   "Selamat — Sampai",
 ];
@@ -68,8 +74,10 @@ export interface RiskSummary {
   contacted: number;
   saved: number;
   unreachable: number;
+  cancelled: number;
   savedValue: number;
   pendingValue: number;
+  cancelledValue: number;
 }
 
 export function summariseRisk(
@@ -80,8 +88,10 @@ export function summariseRisk(
   let contacted = 0;
   let saved = 0;
   let unreachable = 0;
+  let cancelled = 0;
   let savedValue = 0;
   let pendingValue = 0;
+  let cancelledValue = 0;
 
   for (const p of parcels) {
     const rec = map[riskKey(p.trackingNo)];
@@ -92,6 +102,9 @@ export function summariseRisk(
     } else if (status === "Selamat — Sampai") {
       saved += 1;
       savedValue += p.amount;
+    } else if (status === "Cancel Order") {
+      cancelled += 1;
+      cancelledValue += p.amount;
     } else if (status === "Tak Dapat Dihubungi") {
       unreachable += 1;
     } else {
@@ -105,7 +118,9 @@ export function summariseRisk(
     contacted,
     saved,
     unreachable,
+    cancelled,
     savedValue: Math.round(savedValue),
     pendingValue: Math.round(pendingValue),
+    cancelledValue: Math.round(cancelledValue),
   };
 }
