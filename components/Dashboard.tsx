@@ -379,7 +379,7 @@ export default function Dashboard({
                 <ReconcilePanel orders={filteredOrders} />
               </div>
             ) : (
-              <SelamatkanSummaryPanel parcels={a.riskParcels} />
+              <SelamatkanSummaryPanel parcels={a.riskParcels} thresholdDays={a.riskThresholdDays} />
             )}
           </section>
           </div>
