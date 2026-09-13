@@ -75,8 +75,6 @@ export default function Dashboard({
   }));
 
   const [tab, setTab] = useState("ringkasan");
-  // Sub-tab dalam Selamatkan: senarai tindakan vs ringkasan apa admin dah buat.
-  const [selamatkanView, setSelamatkanView] = useState<"tindakan" | "ringkasan">("tindakan");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [presenting, setPresenting] = useState(false);
   // Mirrors the stored preference so the palette label stays in sync.
@@ -89,9 +87,8 @@ export default function Dashboard({
     const returned = a.statusBreakdown.find((s) => s.status === "RETURN")?.count ?? 0;
     return [
       { id: "ringkasan", label: "Ringkasan", icon: "\u{1F4CA}" },
-      { id: "selamatkan", label: "Selamatkan", icon: "\u{1F6A8}", badge: risky, badgeTone: "alert" },
+      { id: "selamatkan", label: "Selamatkan", icon: "\u{1F6A8}", badge: risky + returned, badgeTone: "alert" },
       { id: "panggil", label: "Panggilan Hari Ini", icon: "\u{1F4DE}" },
-      { id: "punca", label: "Punca Return", icon: "\u{1F50D}", badge: returned, badgeTone: "alert" },
       { id: "bulanan", label: "Bulanan", icon: "\u{1F4C5}", badge: a.monthlyRecaps.length, badgeTone: "neutral" },
       { id: "produk", label: "Produk & Kurier", icon: "\u{1F4E6}" },
       { id: "orang", label: "Ejen & Pelanggan", icon: "\u{1F465}" },
@@ -341,62 +338,36 @@ export default function Dashboard({
 
         {tab === "selamatkan" && (
           <div className="space-y-6 sm:space-y-8">
+
           <section id="parcel-berisiko" className="scroll-mt-24">
-            <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
-              <div>
-                <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">Boleh Diselamatkan</p>
-                <p className="text-content-300/70 text-[13px]">
-                  Parcel yang masih boleh dikejar, dan semakan bayaran masuk.
-                </p>
-              </div>
-
-              {/* SUB-TAB: Tindakan vs Ringkasan */}
-              <div className="flex gap-2">
-                {(
-                  [
-                    ["tindakan", "Tindakan"],
-                    ["ringkasan", "Ringkasan"],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    onClick={() => setSelamatkanView(id)}
-                    className={`font-mono text-[10.5px] uppercase tracking-wider px-3 py-2 rounded-lg border transition-colors ${
-                      selamatkanView === id
-                        ? "border-accent text-accent-ink bg-accent-wash"
-                        : "border-surface-600 text-content-300 hover:bg-surface-700"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+            <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">Boleh Diselamatkan</p>
+            <p className="text-content-300/70 text-[13px] mb-4">
+              Parcel yang masih boleh dikejar — hubungi, tanda status dan punca dalam satu tempat.
+            </p>
+            <div className="space-y-5 sm:space-y-6">
+              <RiskParcelPanel parcels={a.riskParcels} thresholdDays={a.riskThresholdDays} />
+              <ReconcilePanel orders={filteredOrders} />
             </div>
-
-            {selamatkanView === "tindakan" ? (
-              <div className="space-y-5 sm:space-y-6">
-                <RiskParcelPanel parcels={a.riskParcels} thresholdDays={a.riskThresholdDays} />
-                <ReconcilePanel orders={filteredOrders} />
-              </div>
-            ) : (
-              <SelamatkanSummaryPanel parcels={a.riskParcels} thresholdDays={a.riskThresholdDays} />
-            )}
           </section>
-          </div>
-        )}
 
-        {tab === "punca" && (
-          <div className="space-y-6 sm:space-y-8">
-            <section>
-              <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">
-                Sebab Sebenar (Ditanda Admin)
-              </p>
-              <p className="text-content-300/70 text-[13px] mb-4">
-                Status kurier tidak beritahu kenapa customer menolak. Tanda sebab sebenar di
-                sini untuk dapat gambaran yang boleh ditindak.
-              </p>
-              <CausePanel orders={filteredOrders} />
-            </section>
+          <section>
+            <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">Ringkasan Tindakan Admin</p>
+            <p className="text-content-300/70 text-[13px] mb-4">
+              Apa yang admin dah pilih dan buat setakat ini.
+            </p>
+            <SelamatkanSummaryPanel parcels={a.riskParcels} thresholdDays={a.riskThresholdDays} />
+          </section>
+
+          <section>
+            <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">
+              Sebab Sebenar (Order Yang Dah RETURN)
+            </p>
+            <p className="text-content-300/70 text-[13px] mb-4">
+              Status kurier tidak beritahu kenapa customer menolak. Tanda sebab sebenar di
+              sini untuk dapat gambaran yang boleh ditindak.
+            </p>
+            <CausePanel orders={filteredOrders} />
+          </section>
 
           <section>
             <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">Punca Kerugian</p>
@@ -408,6 +379,7 @@ export default function Dashboard({
               <MoneyLostPanel data={a.moneyLost} />
             </div>
           </section>
+
           {/* Root cause: return + pending reasons */}
           <section>
             <p className="font-display font-bold text-lg sm:text-xl text-content-100 mb-1">Kenapa Sales Bermasalah</p>
@@ -427,6 +399,7 @@ export default function Dashboard({
               />
             </div>
           </section>
+
           {/* Risk lists */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
             <LedgerBars
@@ -450,6 +423,7 @@ export default function Dashboard({
               color="red"
             />
           </section>
+
           </div>
         )}
 
