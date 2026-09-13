@@ -57,6 +57,18 @@ const STATUS_STYLE: Record<RiskStatus, string> = {
 };
 
 
+/*
+ * Status yang label dia sama persis dengan salah satu Punca Return —
+ * bila admin tanda status ni, terus auto-isi Punca Return juga supaya
+ * tak perlu pilih 2 kali untuk benda yang sama. Kalau admin dah tanda
+ * punca lain secara manual, auto-fill ni tak akan override.
+ */
+const AUTO_CAUSE_STATUSES = new Set<RiskStatus>([
+  "Confirmation Reply",
+  "Confirmation Tidak Reply",
+  "Cancel Order",
+]);
+
 function rm(n: number) {
   return `RM ${Math.round(n).toLocaleString()}`;
 }
@@ -222,6 +234,26 @@ export default function RiskParcelPanel({
 
         if (patch.status) {
           recordActivity(0);
+        }
+
+        // Auto-isi Punca Return bila status yang label sama ditanda.
+        if (
+          patch.status &&
+          AUTO_CAUSE_STATUSES.has(patch.status)
+        ) {
+          const cKey = causeKey(parcel.trackingNo);
+          setCauseMap((prevCause) => {
+            if (prevCause[cKey]) return prevCause; // dah ada tag manual — jangan override
+            const nextCause = {
+              ...prevCause,
+              [cKey]: {
+                cause: patch.status as string,
+                updatedAt: new Date().toISOString(),
+              },
+            };
+            saveCauseMap(nextCause);
+            return nextCause;
+          });
         }
 
         return next;
@@ -949,8 +981,12 @@ export default function RiskParcelPanel({
         Status dan Punca Return disimpan
         dalam browser komputer ini.
         Pilihan Punca Return menggunakan
-        senarai yang sama dengan tab{" "}
-        <strong>Punca Return</strong>.
+        senarai yang sama dengan sub-tab{" "}
+        <strong>Punca Return</strong>. Tanda status{" "}
+        <strong>Confirmation Reply</strong>,{" "}
+        <strong>Confirmation Tidak Reply</strong> atau{" "}
+        <strong>Cancel Order</strong> akan auto-isi Punca
+        Return sekali — tak payah pilih dua kali.
 
       </p>
 
