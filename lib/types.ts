@@ -111,7 +111,16 @@ export interface MonthlyStatusRow {
   count: number;
   totalAmount: number;
   avgPerOrder: number;
-  pctOfMonthOrders: number;
+  pctOfMonthOrders: number; // % per parcel — dikira ikut bilangan order/parcel
+  pctOfMonthSales: number; // % per sales — dikira ikut nilai RM
+}
+
+export interface CourierReturnSplit {
+  courier: string;
+  returnCount: number;
+  returnAmount: number;
+  pctReturnParcel: number; // % share kurier ini antara semua return bulan tu, ikut bilangan parcel
+  pctReturnSales: number; // % share kurier ini antara semua return bulan tu, ikut nilai RM
 }
 
 export interface MonthlyRecap {
@@ -120,6 +129,10 @@ export interface MonthlyRecap {
   totalOrders: number;
   totalSales: number;
   rows: MonthlyStatusRow[];
+  courierReturns: CourierReturnSplit[];
+  totalReturnCount: number;
+  totalReturnAmount: number;
+  dominantReturnCourier: string | null;
 }
 
 export interface MonthComparisonRow {
