@@ -12,6 +12,7 @@ import {
   OrderStatus,
   MonthlyRecap,
   MonthlyStatusRow,
+  CourierReturnSplit,
   MonthComparisonRow,
   ShipTypeStat,
   RiskParcel,
@@ -247,6 +248,7 @@ export function computeAnalytics(allOrders: Order[]): Analytics {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([monthKey, { label, list }]) => {
       const totalOrders = list.length;
+      const totalSales = list.reduce((s, o) => s + o.amount, 0);
       const byStatus = new Map<OrderStatus, Order[]>();
       for (const o of list) {
         if (!byStatus.has(o.status)) byStatus.set(o.status, []);
@@ -260,15 +262,43 @@ export function computeAnalytics(allOrders: Order[]): Analytics {
           totalAmount: Math.round(totalAmount * 100) / 100,
           avgPerOrder: sublist.length ? Math.round((totalAmount / sublist.length) * 100) / 100 : 0,
           pctOfMonthOrders: pct(sublist.length, totalOrders),
+          pctOfMonthSales: pct(totalAmount, totalSales),
         };
       }).sort((a, b) => b.count - a.count);
-      const totalSales = list.reduce((s, o) => s + o.amount, 0);
+
+      // ---- Pecahan return ikut kurier (Pos Laju vs Ninja Van vs lain-lain) ----
+      const returnedList = list.filter((o) => o.status === "RETURN");
+      const totalReturnCount = returnedList.length;
+      const totalReturnAmount = returnedList.reduce((s, o) => s + o.amount, 0);
+      const courierMap = new Map<string, { count: number; amount: number }>();
+      for (const o of returnedList) {
+        const key = o.courierProvider || "Tidak Diketahui";
+        if (!courierMap.has(key)) courierMap.set(key, { count: 0, amount: 0 });
+        const e = courierMap.get(key)!;
+        e.count += 1;
+        e.amount += o.amount;
+      }
+      const courierReturns: CourierReturnSplit[] = Array.from(courierMap.entries())
+        .map(([courier, { count, amount }]) => ({
+          courier,
+          returnCount: count,
+          returnAmount: Math.round(amount * 100) / 100,
+          pctReturnParcel: pct(count, totalReturnCount),
+          pctReturnSales: pct(amount, totalReturnAmount),
+        }))
+        .sort((a, b) => b.returnCount - a.returnCount);
+      const dominantReturnCourier = courierReturns.length ? courierReturns[0].courier : null;
+
       return {
         monthKey,
         monthLabel: label,
         totalOrders,
         totalSales: Math.round(totalSales * 100) / 100,
         rows,
+        courierReturns,
+        totalReturnCount,
+        totalReturnAmount: Math.round(totalReturnAmount * 100) / 100,
+        dominantReturnCourier,
       };
     });
 
